@@ -7,11 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"homework/internal/model"
+	"libratrack/internal/model"
 )
 
-// Recovery перехоплює паніку в обробнику. Деталі (текст паніки і stack trace)
-// йдуть лише в лог, а клієнт отримує 500 internal_server_error без подробиць.
+// Recovery catches a panic in a handler. The details (panic text and stack
+// trace) go only to the log; the client gets a 500 internal_server_error.
 func Recovery() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
@@ -19,7 +19,7 @@ func Recovery() gin.HandlerFunc {
 			if rec == nil {
 				return
 			}
-			// Це штатний спосіб net/http перервати відповідь, його не глушимо.
+			// This is the standard way for net/http to abort a response: do not swallow it.
 			if rec == http.ErrAbortHandler {
 				panic(rec)
 			}
@@ -27,7 +27,7 @@ func Recovery() gin.HandlerFunc {
 			log.Printf("panic recovered: %v\n%s", rec, debug.Stack())
 
 			if c.Writer.Written() {
-				// Відповідь уже почала відправлятись, змінити статус не можна.
+				// The response has already started, the status cannot change.
 				c.Abort()
 				return
 			}

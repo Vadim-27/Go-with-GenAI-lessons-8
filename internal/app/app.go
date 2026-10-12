@@ -1,46 +1,47 @@
-// Package app wires the whole HTTP API together.
-//
-// The automatic tests talk to your API ONLY through NewRouter(), so you are free to
-// organise the rest of the code (model, repository, handler, middleware) as you like.
+// Package app wires the HTTP API together.
 package app
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
-	"homework/internal/handler"
-	"homework/internal/middleware"
-	"homework/internal/repository"
+	"libratrack/internal/handler"
+	"libratrack/internal/middleware"
+	"libratrack/internal/repository"
 )
 
 func init() {
-	// Вимикаємо debug-режим Gin: без банера та таблиці маршрутів у логах.
+	// Release mode: no debug banner or route table in the logs.
 	gin.SetMode(gin.ReleaseMode)
 }
 
-// NewRouter повертає повністю налаштований HTTP-обробник ресурсу books.
-//
-// Кожен виклик будує НОВИЙ роутер зі своїм ПОРОЖНІМ сховищем у пам'яті,
-// тому роутери ніколи не ділять стан між собою.
-func NewRouter() http.Handler {
-	repo := repository.NewMemoryRepository()
-	books := handler.NewBookHandler(repo)
+// NewRouter builds the router: it creates the repositories on top of db,
+// the handlers on top of the repositories, and registers all routes.
+func NewRouter(db *gorm.DB) http.Handler {
+	categories := handler.NewCategoryHandler(repository.NewCategoryRepository(db))
+	authors := handler.NewAuthorHandler(repository.NewAuthorRepository(db))
+	books := handler.NewBookHandler(repository.NewBookRepository(db))
+	copies := handler.NewCopyHandler(repository.NewCopyRepository(db))
 
 	r := gin.New()
-	// Порядок важливий: Logger ззовні, щоб бачити і 500 після паніки;
-	// Recovery перед CORS, а CORS ставить заголовки ще до хендлера.
+	// Order matters: Logger is the outermost so it sees the 500 after a panic;
+	// Recovery comes before CORS; CORS sets headers before the handler runs.
 	r.Use(middleware.Logger(), middleware.Recovery(), middleware.CORS())
-	// Шлях зі слешем наприкінці — це інший, незареєстрований маршрут (404 JSON), а не редирект 307.
+	// A trailing slash is a different, unregistered route (JSON 404), not a 307 redirect.
 	r.RedirectTrailingSlash = false
 	r.NoRoute(handler.NotFound)
 	r.GET("/health", handler.Health)
 	r.GET("/openapi.yaml", handler.OpenAPI)
 	r.GET("/swagger", handler.SwaggerUI)
+	r.GET("/swagger/index.html", handler.SwaggerUI)
 
-	// Новий ресурс — це ще один виклик Register тут.
 	api := r.Group("/api/v1")
+	categories.Register(api)
+	authors.Register(api)
 	books.Register(api)
+	copies.Register(api)
 
 	return r
 }

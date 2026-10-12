@@ -6,7 +6,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"homework/internal/docs"
+	"libratrack/internal/docs"
 )
 
 func parseSpec(t *testing.T) map[string]any {
@@ -28,9 +28,15 @@ func TestSpec_DescribesEveryRoute(t *testing.T) {
 
 	paths, _ := spec["paths"].(map[string]any)
 	want := map[string][]string{
-		"/health":            {"get"},
-		"/api/v1/books":      {"get", "post"},
-		"/api/v1/books/{id}": {"get", "put", "delete"},
+		"/health":                         {"get"},
+		"/api/v1/categories":              {"get", "post"},
+		"/api/v1/categories/{id}":         {"get"},
+		"/api/v1/authors":                 {"get", "post"},
+		"/api/v1/authors/{id}":            {"get"},
+		"/api/v1/books":                   {"get", "post"},
+		"/api/v1/books/{id}":              {"get", "put", "delete"},
+		"/api/v1/books/{id}/copies":       {"get", "post"},
+		"/api/v1/books/{id}/availability": {"get"},
 	}
 	for path, methods := range want {
 		item, ok := paths[path].(map[string]any)

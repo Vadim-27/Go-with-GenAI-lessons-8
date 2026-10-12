@@ -12,8 +12,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"homework/internal/middleware"
-	"homework/internal/model"
+	"libratrack/internal/middleware"
+	"libratrack/internal/model"
 )
 
 const secret = "super-secret-internal-detail"
@@ -36,7 +36,7 @@ func get(r http.Handler, path string) *httptest.ResponseRecorder {
 	return rec
 }
 
-// captureLog перенаправляє стандартний лог у буфер на час тесту.
+// captureLog redirects the standard logger into a buffer for the duration of the test.
 func captureLog(t *testing.T) *bytes.Buffer {
 	t.Helper()
 	var buf bytes.Buffer
@@ -68,13 +68,13 @@ func TestRecovery_PanicBecomes500WithoutDetails(t *testing.T) {
 		t.Error("message must not be empty")
 	}
 
-	// Клієнт не має бачити ні текст паніки, ні stack trace.
+	// The client must not see the panic text or the stack trace.
 	body := rec.Body.String()
 	if strings.Contains(body, secret) || strings.Contains(body, "goroutine") {
 		t.Errorf("response leaks internal details: %s", body)
 	}
 
-	// Подробиці мають потрапити в лог.
+	// The details must end up in the log.
 	if !strings.Contains(logs.String(), secret) {
 		t.Errorf("panic details were not logged: %q", logs.String())
 	}
@@ -99,7 +99,7 @@ func TestRecovery_PanicAfterResponseStarted(t *testing.T) {
 
 	rec := get(newRouter(), "/panic-after-write")
 
-	// Статус і тіло вже відправлені, тому JSON-помилку дописувати не можна.
+	// The status and the body are already sent: they must stay as they were.
 	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200 (already written)", rec.Code)
 	}

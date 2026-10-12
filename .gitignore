@@ -7,3 +7,10 @@ list.txt
 result.json
 .idea/
 .vscode/
+
+# local secrets
+.env
+bin/
+app.log
+test.log
+cover.out

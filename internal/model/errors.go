@@ -6,6 +6,8 @@ const (
 	CodeInvalidPagination   = "invalid_pagination"
 	CodeValidationError     = "validation_error"
 	CodeNotFound            = "not_found"
+	CodeConflict            = "conflict"
+	CodeInvalidReference    = "invalid_reference"
 	CodeInternalServerError = "internal_server_error"
 )
 

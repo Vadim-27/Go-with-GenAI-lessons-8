@@ -1,30 +1,32 @@
 openapi: 3.0.3
 info:
-  title: LibraTrack Books API
+  title: LibraTrack API
   description: |
-    REST API для ресурсу книжок (варіант `books`).
-    Сховище в пам'яті: дані зникають після перезапуску сервера.
-  version: 1.0.0
+    REST API of the LibraTrack library system (PostgreSQL + GORM).
+    Books belong to one category and have one or more authors (Many-to-Many).
+    Every book can have several physical copies.
+  version: 2.0.0
 
 servers:
   - url: http://localhost:8080
-    description: Локальний сервер
+    description: Local server
 
 tags:
   - name: system
-    description: Службові ендпоінти
+  - name: categories
+  - name: authors
   - name: books
-    description: Операції з книжками
+  - name: copies
 
 paths:
   /health:
     get:
       tags: [system]
-      summary: Перевірка, що сервіс працює
+      summary: Health check
       operationId: health
       responses:
         "200":
-          description: Сервіс працює
+          description: The service is running
           content:
             application/json:
               schema:
@@ -35,39 +37,146 @@ paths:
                     type: string
                     example: ok
 
+  /api/v1/categories:
+    get:
+      tags: [categories]
+      summary: List categories
+      operationId: listCategories
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Categories ordered by id
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [categories]
+      summary: Create a category
+      description: The name must be 2 to 40 characters long and unique.
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+
+  /api/v1/categories/{id}:
+    get:
+      tags: [categories]
+      summary: Get a category
+      operationId: getCategory
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/authors:
+    get:
+      tags: [authors]
+      summary: List authors
+      operationId: listAuthors
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Authors ordered by id
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Author"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      tags: [authors]
+      summary: Create an author
+      operationId: createAuthor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Author"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+
+  /api/v1/authors/{id}:
+    get:
+      tags: [authors]
+      summary: Get an author
+      operationId: getAuthor
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: The author
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Author"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/books:
     get:
       tags: [books]
-      summary: Список книжок
+      summary: List books
       description: |
-        Порядок завжди за `id` за зростанням. Порожня колекція повертається як `[]`.
-        Фільтр `category` збігається точно і чутливий до регістру; порожнє значення означає «без фільтра».
-        Сторінка за межами даних дає `[]`.
+        Ordered by id. Every book contains its category and authors, loaded with
+        a constant number of SQL queries (no N+1).
+        A page beyond the data gives an empty array.
       operationId: listBooks
       parameters:
-        - name: page
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: category_id
           in: query
-          description: Номер сторінки (ціле число >= 1).
+          description: Keep only books of this category. An empty value means no filter.
           schema:
             type: integer
             minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          description: Розмір сторінки (ціле число >= 1). Значення більше 100 замінюється на 100.
-          schema:
-            type: integer
-            minimum: 1
-            default: 10
-        - name: category
-          in: query
-          description: Показати лише книжки з цією категорією.
-          schema:
-            type: string
-          example: programming
       responses:
         "200":
-          description: Масив книжок (може бути порожнім)
+          description: A page of books
           content:
             application/json:
               schema:
@@ -75,21 +184,13 @@ paths:
                 items:
                   $ref: "#/components/schemas/Book"
         "400":
-          description: Некоректні `page` або `limit` (код `invalid_pagination`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                error:
-                  code: invalid_pagination
-                  message: Invalid page
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
+          $ref: "#/components/responses/BadRequest"
     post:
       tags: [books]
-      summary: Створити книжку
+      summary: Create a book
+      description: |
+        The book and its author links are saved in one transaction.
+        An unknown author or category gives 422 invalid_reference and nothing is stored.
       operationId: createBook
       requestBody:
         required: true
@@ -99,46 +200,41 @@ paths:
               $ref: "#/components/schemas/BookInput"
       responses:
         "201":
-          description: Книжку створено
+          description: Created
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Book"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
+          $ref: "#/components/responses/Unprocessable"
 
   /api/v1/books/{id}:
-    parameters:
-      - $ref: "#/components/parameters/BookID"
-
     get:
       tags: [books]
-      summary: Отримати книжку за id
+      summary: Get a book
       operationId: getBook
+      parameters:
+        - $ref: "#/components/parameters/Id"
       responses:
         "200":
-          description: Знайдена книжка
+          description: The book with its category and authors
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Book"
         "400":
-          $ref: "#/components/responses/InvalidID"
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
     put:
       tags: [books]
-      summary: Повністю замінити книжку
-      description: |
-        Обов'язкові поля замінюються, а необов'язкові, яких немає в тілі, стають `null`.
-        `id` і `created_at` не змінюються, `updated_at` оновлюється.
-        Порядок перевірок: спочатку `id` (400), потім тіло (422), потім існування (404).
+      summary: Replace a book
+      description: Replaces the book fields and the list of its authors.
       operationId: updateBook
+      parameters:
+        - $ref: "#/components/parameters/Id"
       requestBody:
         required: true
         content:
@@ -147,67 +243,178 @@ paths:
               $ref: "#/components/schemas/BookInput"
       responses:
         "200":
-          description: Збережена книжка
+          description: The saved book
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Book"
         "400":
-          $ref: "#/components/responses/InvalidID"
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
+          $ref: "#/components/responses/Unprocessable"
     delete:
       tags: [books]
-      summary: Видалити книжку
-      description: Видалений `id` більше ніколи не використовується повторно.
+      summary: Delete a book
+      description: The database also deletes the copies and the author links of the book.
       operationId: deleteBook
+      parameters:
+        - $ref: "#/components/parameters/Id"
       responses:
         "204":
-          description: Книжку видалено, тіла відповіді немає
+          description: Deleted
         "400":
-          $ref: "#/components/responses/InvalidID"
+          $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/books/{id}/copies:
+    get:
+      tags: [copies]
+      summary: List copies of a book
+      operationId: listCopies
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Copies ordered by id
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Copy"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [copies]
+      summary: Add a copy of a book
+      description: The status defaults to available.
+      operationId: createCopy
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CopyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Copy"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+
+  /api/v1/books/{id}/availability:
+    get:
+      tags: [copies]
+      summary: Availability of a book
+      operationId: getAvailability
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Number of all and available copies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
 components:
   parameters:
-    BookID:
+    Id:
       name: id
       in: path
       required: true
-      description: Ідентифікатор книжки, ціле число від 0 до 4294967295.
+      description: Positive integer id.
       schema:
         type: integer
-        format: int64
-        minimum: 0
-        maximum: 4294967295
-      example: 1
+        minimum: 1
+    Page:
+      name: page
+      in: query
+      description: Page number (integer >= 1).
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      description: Page size (integer >= 1). A value above 100 is replaced by 100.
+      schema:
+        type: integer
+        minimum: 1
+        default: 10
 
   schemas:
-    Book:
+    Category:
       type: object
-      required:
-        - id
-        - title
-        - isbn
-        - author
-        - category
-        - published_year
-        - description
-        - created_at
-        - updated_at
+      required: [id, name]
       properties:
         id:
           type: integer
-          format: int64
-          minimum: 1
+          example: 1
+        name:
+          type: string
+          example: Programming
+    CategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 40
+          example: Programming
+    Author:
+      type: object
+      required: [id, full_name, bio]
+      properties:
+        id:
+          type: integer
+          example: 1
+        full_name:
+          type: string
+          example: Alan Donovan
+        bio:
+          type: string
+          nullable: true
+    AuthorInput:
+      type: object
+      required: [full_name]
+      properties:
+        full_name:
+          type: string
+          example: Alan Donovan
+        bio:
+          type: string
+          nullable: true
+    Book:
+      type: object
+      required: [id, title, isbn, category_id, category, authors, created_at]
+      properties:
+        id:
+          type: integer
           example: 1
         title:
           type: string
@@ -215,12 +422,18 @@ components:
         isbn:
           type: string
           example: "9780134190440"
-        author:
-          type: string
-          example: Donovan, Kernighan
+        category_id:
+          type: integer
+          example: 1
         category:
+          $ref: "#/components/schemas/Category"
+        authors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Author"
+        publisher:
           type: string
-          example: programming
+          nullable: true
         published_year:
           type: integer
           nullable: true
@@ -228,48 +441,75 @@ components:
         description:
           type: string
           nullable: true
-          example: null
         created_at:
           type: string
           format: date-time
-          example: "2026-10-05T12:00:00.123456Z"
-        updated_at:
-          type: string
-          format: date-time
-          example: "2026-10-05T12:00:00.123456Z"
-
     BookInput:
       type: object
-      required: [title, isbn, author, category]
+      required: [title, isbn, category_id, author_ids]
       properties:
         title:
           type: string
-          minLength: 1
-          description: Не може бути порожнім або складатися лише з пробілів.
           example: The Go Programming Language
         isbn:
           type: string
-          minLength: 1
-          description: Не може бути порожнім або складатися лише з пробілів.
           example: "9780134190440"
-        author:
+        category_id:
+          type: integer
+          example: 1
+        author_ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+          example: [1, 2]
+        publisher:
           type: string
-          minLength: 1
-          description: Не може бути порожнім або складатися лише з пробілів.
-          example: Donovan, Kernighan
-        category:
-          type: string
-          minLength: 1
-          description: Не може бути порожнім або складатися лише з пробілів. Це поле використовується як фільтр у списку.
-          example: programming
+          nullable: true
         published_year:
           type: integer
+          minimum: 1000
+          maximum: 2100
           nullable: true
-          example: 2015
         description:
           type: string
           nullable: true
-
+    Copy:
+      type: object
+      required: [id, book_id, inventory_no, status]
+      properties:
+        id:
+          type: integer
+        book_id:
+          type: integer
+        inventory_no:
+          type: string
+          example: INV-0001
+        status:
+          $ref: "#/components/schemas/CopyStatus"
+    CopyInput:
+      type: object
+      required: [inventory_no]
+      properties:
+        inventory_no:
+          type: string
+          example: INV-0001
+        status:
+          $ref: "#/components/schemas/CopyStatus"
+    CopyStatus:
+      type: string
+      enum: [available, borrowed, lost, under_repair]
+      default: available
+    Availability:
+      type: object
+      required: [book_id, total_copies, available_copies]
+      properties:
+        book_id:
+          type: integer
+        total_copies:
+          type: integer
+        available_copies:
+          type: integer
     Error:
       type: object
       required: [error]
@@ -285,50 +525,34 @@ components:
                 - invalid_pagination
                 - validation_error
                 - not_found
+                - conflict
+                - invalid_reference
                 - internal_server_error
             message:
               type: string
 
   responses:
-    InvalidID:
-      description: Некоректний `id` (код `invalid_id`)
+    BadRequest:
+      description: Invalid id or pagination parameter (invalid_id, invalid_pagination)
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-          example:
-            error:
-              code: invalid_id
-              message: Invalid book id
     NotFound:
-      description: Книжку не знайдено (код `not_found`)
+      description: The entity does not exist (not_found)
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-          example:
-            error:
-              code: not_found
-              message: Book not found
-    ValidationError:
-      description: |
-        Тіло запиту некоректне (код `validation_error`): зіпсований JSON, порожнє тіло, масив,
-        відсутнє чи порожнє обов'язкове поле, або поле неправильного типу.
+    Conflict:
+      description: A unique value already exists, for example the ISBN (conflict)
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-          example:
-            error:
-              code: validation_error
-              message: Invalid request body
-    InternalServerError:
-      description: Внутрішня помилка сервера. Подробиці не розкриваються, вони пишуться лише в лог.
+    Unprocessable:
+      description: Invalid body (validation_error) or unknown author or category (invalid_reference)
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
-          example:
-            error:
-              code: internal_server_error
-              message: Internal server error

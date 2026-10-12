@@ -5,17 +5,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"homework/internal/docs"
+	"libratrack/internal/docs"
 )
 
-// swaggerPage — сторінка Swagger UI. Саму бібліотеку браузер завантажує з CDN,
-// а специфікацію бере з нашого /openapi.yaml.
+// swaggerPage is the Swagger UI page. The browser loads the library itself
+// from a CDN and takes the specification from our /openapi.yaml.
 const swaggerPage = `<!doctype html>
-<html lang="uk">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Books API</title>
+  <title>LibraTrack API</title>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
 </head>
 <body>
@@ -28,12 +28,12 @@ const swaggerPage = `<!doctype html>
 </html>
 `
 
-// OpenAPI відповідає на GET /openapi.yaml: віддає специфікацію API.
+// OpenAPI answers GET /openapi.yaml with the API specification.
 func OpenAPI(c *gin.Context) {
 	c.Data(http.StatusOK, "application/yaml; charset=utf-8", docs.Spec)
 }
 
-// SwaggerUI відповідає на GET /swagger: інтерактивна документація в браузері.
+// SwaggerUI answers GET /swagger and /swagger/index.html: interactive docs in the browser.
 func SwaggerUI(c *gin.Context) {
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerPage))
 }

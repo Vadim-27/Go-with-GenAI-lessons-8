@@ -1,3 +1,4 @@
+// Package middleware holds logging, panic recovery and CORS.
 package middleware
 
 import (
@@ -7,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Logger пише в лог один рядок на запит: метод, шлях, статус і тривалість.
+// Logger writes one log line per request: method, path, status and duration.
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()

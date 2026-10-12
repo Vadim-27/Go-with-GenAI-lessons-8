@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"homework/internal/model"
+	"libratrack/internal/model"
 )
 
 func TestNewErrorResponse_JSON(t *testing.T) {
